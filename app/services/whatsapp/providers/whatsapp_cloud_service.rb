@@ -409,8 +409,16 @@ module Whatsapp
         if phone_or_bsuid.present? && phone_or_bsuid.match?(RegexHelper::BSUID_REGEX)
           { recipient: phone_or_bsuid }
         else
-          { to: phone_or_bsuid }
+          { to: normalize_ar_mobile(phone_or_bsuid) }
         end
+      end
+
+      # Argentina: WhatsApp wa_id viene como 549... pero Cloud API entrega a 54...
+      # (mismo replace que usaba n8n: from.replace(/^549/, '54')). Solo AR móvil.
+      def normalize_ar_mobile(phone)
+        p = phone.to_s.delete_prefix('+').gsub(/[\s\-()]/, '')
+        p = p.sub(/\A549/, '54') if p.start_with?('549')
+        p
       end
 
       # Send audio message via media upload endpoint with voice: true
