@@ -3,6 +3,9 @@ default: &default
   encoding: unicode
   host: <%= ENV.fetch('POSTGRES_HOST', 'localhost') %>
   port: <%= ENV.fetch('POSTGRES_PORT', '5432') %>
+  # Supabase exige SSL; 'prefer' mantiene compatibilidad con el postgres local
+  # (prueba SSL y cae a plano), 'require' para Supabase directo.
+  sslmode: <%= ENV.fetch('POSTGRES_SSLMODE', 'prefer') %>
   # PgBouncer em TRANSACTION mode: prepared statements persistentes e advisory locks NÃO
   # funcionam (a conexão de backend é trocada entre statements). Gated por env DB_PGBOUNCER:
   # ligue (=true) só quando a conexão for via pooler em transaction mode (prod). Em dev/conn
