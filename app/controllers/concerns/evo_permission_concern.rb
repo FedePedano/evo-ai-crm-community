@@ -83,9 +83,16 @@ module EvoPermissionConcern
     cache_key = "user:#{user_id}:#{scope_id}:#{permission}"
     return Current.evo_permission_cache[cache_key] if Current.evo_permission_cache.key?(cache_key)
 
-    has_perm = EvoExtensionPoints::PermissionResolver.allowed?(
-      user_id: user_id, permission_key: permission, scope_id: scope_id
-    )
+    # Cross-request cache (Redis, AUTHZ_REMOTE_CACHE_TTL): without this every
+    # API call pays 1 remote check_user_permission roundtrip (300-1700ms under
+    # burst). Stale window on role change: <= TTL (same tradeoff as the 20s
+    # token-validation cache in EvoAuthConcern).
+    store_key = "evo_authz:perm:#{cache_key}"
+    has_perm = Rails.cache.fetch(store_key, expires_in: AUTHZ_REMOTE_CACHE_TTL) do
+      EvoExtensionPoints::PermissionResolver.allowed?(
+        user_id: user_id, permission_key: permission, scope_id: scope_id
+      )
+    end
     Current.evo_permission_cache[cache_key] = has_perm
 
     has_perm

@@ -4,11 +4,29 @@ module Dashboard
   class CustomerDashboardService
     WEEKDAY_LABELS = %w[Dom Seg Ter Qua Qui Sex Sab].freeze
 
+    CACHE_TTL = 2.minutes
+
     def initialize(account: nil, params:)
+      @account = account
+      @params = params.to_h
       @filters = Dashboard::FiltersBuilder.new(params: params)
     end
 
     def call
+      Rails.cache.fetch(cache_key, expires_in: CACHE_TTL) do
+        build_payload
+      end
+    end
+
+    private
+
+    def cache_key
+      digest = Digest::MD5.hexdigest(@params.sort.to_h.to_json)
+      account_id = @account&.id || Current.account&.id
+      "dashboard/customer/#{account_id}/#{digest}"
+    end
+
+    def build_payload
       {
         period: build_period,
         filters: @filters.applied_filters.except(:since, :until),

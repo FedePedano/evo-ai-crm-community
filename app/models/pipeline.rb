@@ -96,16 +96,31 @@ class Pipeline < ApplicationRecord
   # É o mesmo número que a UI mostra no header ("Valor Total R$X"). O stats só trazia
   # CONTAGEM; sem isto, qualquer relatório financeiro (inclusive o do assistente) conclui
   # "não há valores". services_total_value já existe no PipelineItem.
+  # SQL agregado (1 query) em vez de Ruby (N+1): soma services[*].value como float,
+  # mesma semântica do #services_total_value (não-numérico => 0, sem services => 0).
+  SERVICES_VALUE_SUM_SQL = <<~SQL.squish
+    COALESCE((
+      SELECT SUM(CASE WHEN elem->>'value' ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                      THEN (elem->>'value')::float ELSE 0 END)
+      FROM jsonb_array_elements(
+        CASE WHEN jsonb_typeof(pipeline_items.custom_fields->'services') = 'array'
+             THEN pipeline_items.custom_fields->'services'
+             ELSE '[]'::jsonb END
+      ) AS elem
+    ), 0)
+  SQL
+
   def total_value
-    pipeline_items.sum(&:services_total_value)
+    pipeline_items.sum(Arel.sql(SERVICES_VALUE_SUM_SQL)).to_f
   end
 
   # Valor agregado POR ETAPA (stage_id/name => soma dos serviços dos itens daquela etapa).
-  # Espelha stage_counts, mas com dinheiro em vez de contagem.
+  # Espelha stage_counts, mas com dinheiro em vez de contagem. SQL agregado (1 query).
   def stage_values
-    pipeline_stages.each_with_object({}) do |stage, acc|
-      acc[stage.name] = stage.pipeline_items.sum(&:services_total_value)
-    end
+    pipeline_stages.left_joins(:pipeline_items)
+                    .group('pipeline_stages.name')
+                    .sum(Arel.sql(SERVICES_VALUE_SUM_SQL))
+                    .transform_values(&:to_f)
   end
 
   def push_event_data
