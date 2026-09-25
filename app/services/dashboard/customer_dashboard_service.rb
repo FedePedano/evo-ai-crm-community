@@ -22,7 +22,10 @@ module Dashboard
 
     def cache_key
       digest = Digest::MD5.hexdigest(@params.sort.to_h.to_json)
-      account_id = @account&.id || Current.account&.id
+      account = @account
+      account ||= Current.account if defined?(Current) && Current.respond_to?(:account)
+      # Current.account is a RuntimeConfig Hash, not a model — handle both.
+      account_id = account.is_a?(Hash) ? (account['id'] || account[:id]) : account&.id
       "dashboard/customer/#{account_id}/#{digest}"
     end
 
