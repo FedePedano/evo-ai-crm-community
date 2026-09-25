@@ -4,6 +4,10 @@ Rails.application.routes.draw do
   get '/metrics', to: 'health#metrics'
   post '/api/v1/dynamic_oauth/validate_client', to: 'api/v1/dynamic_oauth#validate_dynamic_client'
 
+  # Realtime chat (RoomChannel): sin este mount /cable devuelve 404 y el front
+  # nunca conecta el websocket (mensajes solo aparecen al refrescar).
+  mount ActionCable.server => '/cable'
+
   ## Renders the frontend paths only if this is not an API-only server.
   ## Default true: this backend is API-only (vite_rails removed); the SPA is served
   ## by the separate evo-frontend service. With default false the backend registered
