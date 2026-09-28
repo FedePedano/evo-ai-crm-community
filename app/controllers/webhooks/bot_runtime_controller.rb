@@ -45,6 +45,20 @@ class Webhooks::BotRuntimeController < ActionController::API
       media: media
     )
 
+    # Si la creación falla por elegibilidad (ej: la conversación pasó a open
+    # por un transfer mid-turn), forzar igual: es la despedida final del turno
+    # y el cliente no debe quedarse sin respuesta. Espeja response_processor.
+    unless message
+      Rails.logger.info "[BotRuntime::Postback] Message creation failed (conversation not eligible), attempting force create: conversation=#{conversation.display_id}"
+      message = AgentBots::MessageCreator.new(agent_bot).create_bot_reply(
+        content, conversation,
+        content_type: content_type,
+        content_attributes: content_attributes,
+        media: media,
+        force: true
+      )
+    end
+
     if message
       Rails.logger.info "[BotRuntime::Postback] Message created: #{message.id} conversation=#{conversation.display_id}"
       render json: { status: 'sent' }, status: :ok
