@@ -10,12 +10,26 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_08_26_120000) do
+ActiveRecord::Schema[7.1].define(version: 2026_10_01_000002) do
+  create_schema "auth"
+  create_schema "cliente_demo_inmo"
+  create_schema "cliente_demo_taller"
+  create_schema "exp_tenant_a"
+  create_schema "exp_tenant_b"
+  create_schema "extensions"
+  create_schema "graphql"
+  create_schema "graphql_public"
+  create_schema "pgbouncer"
+  create_schema "realtime"
+  create_schema "storage"
+  create_schema "vault"
+
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
+  enable_extension "supabase_vault"
   enable_extension "uuid-ossp"
 
   # Custom types defined in this database.
@@ -1281,6 +1295,28 @@ ActiveRecord::Schema[7.1].define(version: 2026_08_26_120000) do
     t.datetime "updated_at", precision: nil, null: false
   end
 
+  create_table "tenant_memberships", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "tenant_id", null: false
+    t.uuid "user_id", null: false
+    t.string "role", default: "owner", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "email"
+    t.index ["tenant_id", "email"], name: "index_tenant_memberships_on_tenant_and_email", unique: true
+    t.index ["tenant_id", "user_id"], name: "index_tenant_memberships_on_tenant_id_and_user_id", unique: true
+  end
+
+  create_table "tenants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "slug", null: false
+    t.string "schema_name", null: false
+    t.string "status", default: "active", null: false
+    t.string "plan", default: "free", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["schema_name"], name: "index_tenants_on_schema_name", unique: true
+    t.index ["slug"], name: "index_tenants_on_slug", unique: true
+  end
+
   create_table "user_roles", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "user_id", null: false
     t.uuid "role_id", null: false
@@ -1420,6 +1456,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_08_26_120000) do
   add_foreign_key "stage_movements", "pipeline_items"
   add_foreign_key "stage_movements", "pipeline_stages", column: "from_stage_id"
   add_foreign_key "stage_movements", "pipeline_stages", column: "to_stage_id"
+  add_foreign_key "tenant_memberships", "tenants"
   add_foreign_key "user_roles", "roles"
   add_foreign_key "user_roles", "users"
   add_foreign_key "user_roles", "users", column: "granted_by_id"

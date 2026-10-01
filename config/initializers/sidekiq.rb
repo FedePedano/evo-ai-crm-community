@@ -1,4 +1,7 @@
 require Rails.root.join('lib/redis/config')
+# Multitenant A2: require explícito (los initializers corren antes de que
+# Zeitwerk gestione app/middleware).
+require_relative '../../app/middleware/sidekiq_tenant_middleware'
 
 schedule_file = 'config/schedule.yml'
 

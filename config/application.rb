@@ -63,6 +63,10 @@ module Evolution
     # línea de log lleve el tag del tenant desde el primer middleware.
     # Solo actúa si la tabla `public.tenants` existe (el deployment
     # single-tenant actual no la tiene y queda intacto).
+    # require explícito: la constante se evalúa en application.rb, antes de
+    # que Zeitwerk gestione app/middleware (mismo patrón que
+    # facebook_webhook_logger en initializers).
+    require_relative '../app/middleware/tenant_switcher'
     config.middleware.insert_before Rails::Rack::Logger, TenantSwitcher
     config.log_tags = [:request_id, ->(_req) { "tenant:#{TenantContext.log_tag}" }]
 
