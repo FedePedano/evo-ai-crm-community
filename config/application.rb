@@ -58,6 +58,14 @@ module Evolution
     # config.eager_load_paths << Rails.root.join('app/mcp')
     config.eager_load_paths << Rails.root.join('app/middleware')
 
+    # Multitenant A2 (rama exp/multitenant-a2): resuelve el tenant por
+    # subdominio y fija el search_path ANTES del logger, para que cada
+    # línea de log lleve el tag del tenant desde el primer middleware.
+    # Solo actúa si la tabla `public.tenants` existe (el deployment
+    # single-tenant actual no la tiene y queda intacto).
+    config.middleware.insert_before Rails::Rack::Logger, TenantSwitcher
+    config.log_tags = [:request_id, ->(_req) { "tenant:#{TenantContext.log_tag}" }]
+
     # Settings in config/environments/* take precedence over those specified here.
     # Application configuration can go into files in config/initializers
     # -- all .rb files in that directory are automatically loaded after loading

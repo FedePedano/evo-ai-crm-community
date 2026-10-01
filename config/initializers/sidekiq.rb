@@ -4,10 +4,18 @@ schedule_file = 'config/schedule.yml'
 
 Sidekiq.configure_client do |config|
   config.redis = Redis::Config.app
+  # Multitenant A2: propaga el tenant del contexto a los jobs encolados.
+  config.client_middleware do |chain|
+    chain.add SidekiqTenantMiddleware::Client
+  end
 end
 
 Sidekiq.configure_server do |config|
   config.redis = Redis::Config.app
+  # Multitenant A2: restaura el search_path del tenant al ejecutar.
+  config.server_middleware do |chain|
+    chain.add SidekiqTenantMiddleware::Server
+  end
 
   # Poll scheduled jobs more frequently (default is 5-15s which delays debounce jobs)
   config[:average_scheduled_poll_interval] = 1
