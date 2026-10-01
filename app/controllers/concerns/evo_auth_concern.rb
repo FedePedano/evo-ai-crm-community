@@ -50,6 +50,8 @@ module EvoAuthConcern
     user = find_local_user(user_data['user'])
     raise EvoAuthService::ValidationError, 'User not found locally' unless user
 
+    verify_tenant_membership!(user)
+
     # Set current user
     Current.user = user
     @current_user = user
@@ -79,6 +81,32 @@ module EvoAuthConcern
     elsif token_type == 'api_access_token'
       Current.api_access_token = token
     end
+  end
+
+  # Multitenant A2 (exp/multitenant-a2): el token puede ser válido globalmente
+  # pero el usuario NO pertenecer al tenant del request. Sin registro o sin
+  # tenant en contexto (legacy) => no-op. En caso contrario, fail-closed 403.
+  # El match es por email (llave compartida con el servicio de auth).
+  def verify_tenant_membership!(user)
+    schema = TenantContext.schema_name if defined?(TenantContext)
+    return if schema.blank?
+    return unless ActiveRecord::Base.connection.table_exists?('public.tenants')
+
+    tenant = Tenant.find_by(schema_name: schema)
+    member = tenant && TenantMembership.exists?(
+      tenant_id: tenant.id,
+      email: user.email.to_s.downcase
+    )
+    return if member
+
+    raise EvoAuthService::ValidationError.new(
+      'User is not a member of this organization',
+      code: ApiErrorCodes::FORBIDDEN, status: :forbidden
+    )
+  rescue EvoAuthService::ValidationError
+    raise
+  rescue StandardError
+    nil
   end
 
   def find_local_user(user_data)

@@ -137,7 +137,7 @@ class AutomationRuleListener < BaseListener
 
     # 3. Verificar se há muitos eventos recentes do mesmo contato (proteção contra spam)
     recent_events_key = "contact_updated_#{contact.id}"
-    recent_count = Rails.cache.read(recent_events_key) || 0
+    recent_count = TenantCache.read(recent_events_key) || 0
 
     if recent_count > CONTACT_UPDATED_SPAM_THRESHOLD
       Rails.logger.warn "Automation Rule: Skipping contact_updated for contact #{contact.id} - too many recent events (#{recent_count})"
@@ -146,7 +146,7 @@ class AutomationRuleListener < BaseListener
     end
 
     # Incrementar contador de eventos recentes (expira na janela configurada)
-    Rails.cache.write(recent_events_key, recent_count + 1, expires_in: CONTACT_UPDATED_SPAM_WINDOW.seconds)
+    TenantCache.write(recent_events_key, recent_count + 1, expires_in: CONTACT_UPDATED_SPAM_WINDOW.seconds)
 
     # Log para debug das mudanças
     Rails.logger.debug do
@@ -205,9 +205,9 @@ class AutomationRuleListener < BaseListener
   # without flooding automation_rule_runs during a bulk update storm.
   def record_contact_spam_skip(contact, changed_attributes)
     flag_key = "automation:contact_updated_spam_recorded:#{contact.id}"
-    return if Rails.cache.read(flag_key)
+    return if TenantCache.read(flag_key)
 
-    Rails.cache.write(flag_key, true, expires_in: CONTACT_UPDATED_SPAM_WINDOW.seconds)
+    TenantCache.write(flag_key, true, expires_in: CONTACT_UPDATED_SPAM_WINDOW.seconds)
     current_account_rules('contact_updated').each do |rule|
       recorder = ::AutomationRules::RunRecorder.new(
         rule: rule,
@@ -227,13 +227,13 @@ class AutomationRuleListener < BaseListener
   def pipeline_item_rule_recently_fired?(rule_id, pipeline_item_id, stage_id)
     return false if pipeline_item_id.blank? || stage_id.blank?
 
-    Rails.cache.exist?(pipeline_stage_dedup_key(rule_id, pipeline_item_id, stage_id))
+    TenantCache.exist?(pipeline_stage_dedup_key(rule_id, pipeline_item_id, stage_id))
   end
 
   def mark_pipeline_item_rule_fired(rule_id, pipeline_item_id, stage_id)
     return if pipeline_item_id.blank? || stage_id.blank?
 
-    Rails.cache.write(
+    TenantCache.write(
       pipeline_stage_dedup_key(rule_id, pipeline_item_id, stage_id),
       true,
       expires_in: PIPELINE_STAGE_DEDUP_WINDOW.seconds

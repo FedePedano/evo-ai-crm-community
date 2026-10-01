@@ -21,7 +21,7 @@ class AutomationRules::FlowExecutionService
 
     # Evitar execuções duplicadas muito próximas
     execution_key = "automation_flow_#{@rule.id}_#{@contact&.id || @conversation&.id}"
-    last_execution = Rails.cache.read(execution_key)
+    last_execution = TenantCache.read(execution_key)
 
     if last_execution && (Time.current - last_execution) < 5.seconds
       Rails.logger.info "Automation Rule #{@rule.id}: Skipping execution - too soon after last execution"
@@ -29,7 +29,7 @@ class AutomationRules::FlowExecutionService
     end
 
     # Marcar timestamp da execução
-    Rails.cache.write(execution_key, Time.current, expires_in: 30.seconds)
+    TenantCache.write(execution_key, Time.current, expires_in: 30.seconds)
 
     Rails.logger.info "Automation Rule #{@rule.id}: Executing FLOW mode with #{@rule.flow_data['nodes']&.size || 0} nodes"
 

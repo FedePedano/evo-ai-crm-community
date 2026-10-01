@@ -44,7 +44,7 @@ class Crm::Bms::CustomAttributeSyncJob < ApplicationJob
   end
 
   def get_custom_attribute_external_id
-    Rails.cache.read("bms_custom_field_mapping_#{@custom_attribute_definition.id}")
+    TenantCache.read("bms_custom_field_mapping_#{@custom_attribute_definition.id}")
   end
 
   def find_bms_hook

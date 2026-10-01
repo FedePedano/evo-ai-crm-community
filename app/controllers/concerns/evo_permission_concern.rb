@@ -88,7 +88,7 @@ module EvoPermissionConcern
     # burst). Stale window on role change: <= TTL (same tradeoff as the 20s
     # token-validation cache in EvoAuthConcern).
     store_key = "evo_authz:perm:#{cache_key}"
-    has_perm = Rails.cache.fetch(store_key, expires_in: AUTHZ_REMOTE_CACHE_TTL) do
+    has_perm = TenantCache.fetch(store_key, expires_in: AUTHZ_REMOTE_CACHE_TTL) do
       EvoExtensionPoints::PermissionResolver.allowed?(
         user_id: user_id, permission_key: permission, scope_id: scope_id
       )

@@ -75,7 +75,7 @@ class Api::V1::EvoFlow::ContactEventsController < Api::V1::BaseController
   # skip_nil: prevents poisoning the cache with nil when the upstream id
   # is unknown to the CRM (e.g., a campaign created moments earlier).
   def enrich_campaign(id)
-    Rails.cache.fetch("evo_flow:enrich:campaign:#{id}", expires_in: 60.seconds, skip_nil: true) do
+    TenantCache.fetch("evo_flow:enrich:campaign:#{id}", expires_in: 60.seconds, skip_nil: true) do
       Campaign.find_by(id: id)&.name
     end
   end
@@ -87,7 +87,7 @@ class Api::V1::EvoFlow::ContactEventsController < Api::V1::BaseController
   end
 
   def enrich_agent(id)
-    Rails.cache.fetch("evo_flow:enrich:agent:#{id}", expires_in: 60.seconds, skip_nil: true) do
+    TenantCache.fetch("evo_flow:enrich:agent:#{id}", expires_in: 60.seconds, skip_nil: true) do
       User.find_by(id: id)&.name
     end
   end

@@ -36,7 +36,7 @@ class Api::V1::ContactsController < Api::V1::BaseController
     @contacts = fetch_contacts(listable_contacts)
 
     # Use cached count to avoid expensive COUNT(*) queries on large datasets
-    @contacts_count = Rails.cache.fetch(cache_key_for_contacts_count, expires_in: 1.minute) do
+    @contacts_count = TenantCache.fetch(cache_key_for_contacts_count, expires_in: 1.minute) do
       listable_contacts.count
     end
 

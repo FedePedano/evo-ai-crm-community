@@ -13,7 +13,7 @@ module Dashboard
     end
 
     def call
-      Rails.cache.fetch(cache_key, expires_in: CACHE_TTL) do
+      TenantCache.fetch(cache_key, expires_in: CACHE_TTL) do
         build_payload
       end
     end

@@ -38,9 +38,9 @@ class Crm::Bms::ProcessorService < Crm::BaseProcessorService
 
       # Initialize cache if not exists with current labels BEFORE sync
       cache_key = "bms_contact_labels_#{contact.id}"
-      unless Rails.cache.exist?(cache_key)
+      unless TenantCache.exist?(cache_key)
         Rails.logger.info("BMS: Initializing cache for contact #{contact.id}")
-        Rails.cache.write(cache_key, contact.labels.pluck(:name), expires_in: 1.hour)
+        TenantCache.write(cache_key, contact.labels.pluck(:name), expires_in: 1.hour)
       end
 
       sync_contact_labels_with_changes(contact, event_data)
@@ -176,7 +176,7 @@ class Crm::Bms::ProcessorService < Crm::BaseProcessorService
       # Fallback to cache-based approach
       Rails.logger.info('BMS: Using cache-based approach - changed_attributes not available')
       cache_key = "bms_contact_labels_#{contact.id}"
-      previous_labels = Rails.cache.read(cache_key) || []
+      previous_labels = TenantCache.read(cache_key) || []
       current_labels = contact.labels.pluck(:name)
 
       Rails.logger.info("BMS: Previous labels from cache: #{previous_labels.inspect}")
@@ -185,7 +185,7 @@ class Crm::Bms::ProcessorService < Crm::BaseProcessorService
 
     # Store current labels for next time (cache approach)
     cache_key = "bms_contact_labels_#{contact.id}"
-    Rails.cache.write(cache_key, current_labels, expires_in: 1.hour)
+    TenantCache.write(cache_key, current_labels, expires_in: 1.hour)
 
     # Handle removed labels
     removed_labels = previous_labels - current_labels
@@ -317,23 +317,23 @@ class Crm::Bms::ProcessorService < Crm::BaseProcessorService
   def get_label_external_id(label)
     # For now, store label mapping in a simple in-memory cache or use the label title as identifier
     # This can be improved when additional_attributes column is added to labels table
-    Rails.cache.read("bms_label_mapping_#{label.id}")
+    TenantCache.read("bms_label_mapping_#{label.id}")
   end
 
   def store_label_external_id(label, external_id)
     # Store in cache for now - can be moved to DB additional_attributes later
-    Rails.cache.write("bms_label_mapping_#{label.id}", external_id, expires_in: 30.days)
+    TenantCache.write("bms_label_mapping_#{label.id}", external_id, expires_in: 30.days)
     Rails.logger.info("BMS: Stored label mapping #{label.id} -> #{external_id}")
   end
 
   def get_custom_attribute_external_id(custom_attribute_definition)
     # Store custom field mapping in cache for now
-    Rails.cache.read("bms_custom_field_mapping_#{custom_attribute_definition.id}")
+    TenantCache.read("bms_custom_field_mapping_#{custom_attribute_definition.id}")
   end
 
   def store_custom_attribute_external_id(custom_attribute_definition, external_id)
     # Store in cache for now - can be moved to DB additional_attributes later
-    Rails.cache.write("bms_custom_field_mapping_#{custom_attribute_definition.id}", external_id, expires_in: 30.days)
+    TenantCache.write("bms_custom_field_mapping_#{custom_attribute_definition.id}", external_id, expires_in: 30.days)
     Rails.logger.info("BMS: Stored custom field mapping #{custom_attribute_definition.id} -> #{external_id}")
   end
 end

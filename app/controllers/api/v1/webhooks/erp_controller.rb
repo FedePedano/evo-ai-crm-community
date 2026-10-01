@@ -180,7 +180,7 @@ class Api::V1::Webhooks::ErpController < ActionController::API
   COMMUNITY_IDEMPOTENCY_HEADER = 'X-Idempotency-Key'
 
   def community_idempotency_replay!
-    cached = Rails.cache.read(community_idempotency_key)
+    cached = TenantCache.read(community_idempotency_key)
     return unless cached.is_a?(Hash)
 
     @community_idempotency_replayed = true
@@ -199,7 +199,7 @@ class Api::V1::Webhooks::ErpController < ActionController::API
     return unless response.status == 201
 
     parsed = JSON.parse(response.body)
-    Rails.cache.write(
+    TenantCache.write(
       community_idempotency_key,
       {
         'status' => response.status,

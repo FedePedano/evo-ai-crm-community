@@ -44,7 +44,7 @@ class Crm::Bms::LabelSyncJob < ApplicationJob
   end
 
   def get_label_external_id
-    Rails.cache.read("bms_label_mapping_#{@label.id}")
+    TenantCache.read("bms_label_mapping_#{@label.id}")
   end
 
   def find_bms_hook
