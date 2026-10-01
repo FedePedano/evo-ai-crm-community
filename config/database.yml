@@ -15,6 +15,10 @@ default: &default
   advisory_locks: <%= ENV.fetch('DB_PGBOUNCER', 'false') == 'true' ? 'false' : 'true' %>
    # ref: https://github.com/mperham/sidekiq/issues/2985#issuecomment-531097962
   pool: <%= Sidekiq.server? ? ENV.fetch('SIDEKIQ_CONCURRENCY', 10) : ENV.fetch('RAILS_MAX_THREADS', 5) %>
+  # Multitenant A2 (exp): override del search_path a nivel pool. El adapter
+  # lo aplica en cada checkout (configure_connection); un SET manual no
+  # sobrevive al pool. Default = comportamiento actual.
+  schema_search_path: <%= ENV.fetch('TENANT_SCHEMA_SEARCH_PATH', %q{"$user", public}).inspect %>
   # frequency in seconds to periodically run the Reaper, which attempts
   # to find and recover connections from dead threads
   reaping_frequency: <%= ENV.fetch('DB_POOL_REAPING_FREQUENCY', 30) %>

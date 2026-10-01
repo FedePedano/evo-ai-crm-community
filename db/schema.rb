@@ -34,7 +34,12 @@ ActiveRecord::Schema[7.1].define(version: 2026_10_01_000002) do
 
   # Custom types defined in this database.
   # Note that some types may not work with other database engines. Be careful if changing database.
-  create_enum "contact_type_enum", ["person", "company", "group"]
+  create_enum "public.contact_type_enum", ["person", "company", "group"]
+
+  create_table "_provision_log", id: false, force: :cascade do |t|
+    t.text "step"
+    t.timestamptz "at", default: -> { "now()" }
+  end
 
   create_table "access_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "name", limit: 255, null: false
