@@ -1,7 +1,14 @@
 class Pipelines::CheckOverdueTasksJob < ApplicationJob
+  include TenantDispatch
+
   queue_as :scheduled_jobs
 
-  def perform
+  def perform(tenant_schema: nil)
+    if tenant_schema.nil? && multitenant_active?
+      dispatch_to_each_tenant(self.class)
+      return
+    end
+
     Rails.logger.info '[CheckOverdueTasksJob] Starting overdue tasks check...'
 
     # Find all pending tasks that are past due

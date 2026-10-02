@@ -18,7 +18,9 @@ class TenantSwitcher
     request = ActionDispatch::Request.new(env)
     # Sin tabla de registro (deployment single-tenant actual) el middleware
     # es totalmente transparente: no toca search_path ni contexto.
-    return @app.call(env) if excluded?(request) || !registry_present?
+    # En test se fuerza transparencia (suite legacy con DB fresca; ver
+    # TenantDispatch#multitenant_active?). Override: MULTITENANT_FORCE=1.
+    return @app.call(env) if excluded?(request) || test_bypass? || !registry_present?
 
     slug = tenant_slug(request)
     tenant = slug && Tenant.active.find_by(slug: slug)
@@ -36,6 +38,12 @@ class TenantSwitcher
 
   def excluded?(request)
     EXCLUDED_PATHS.any? { |p| request.path.start_with?(p) }
+  end
+
+  def test_bypass?
+    ENV['MULTITENANT_FORCE'] != '1' && defined?(Rails) && Rails.env.test?
+  rescue StandardError
+    false
   end
 
   # La existencia de la tabla es global (no depende del tenant): se memoiza

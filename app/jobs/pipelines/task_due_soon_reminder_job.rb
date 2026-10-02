@@ -1,7 +1,14 @@
 class Pipelines::TaskDueSoonReminderJob < ApplicationJob
+  include TenantDispatch
+
   queue_as :scheduled_jobs
 
-  def perform
+  def perform(tenant_schema: nil)
+    if tenant_schema.nil? && multitenant_active?
+      dispatch_to_each_tenant(self.class)
+      return
+    end
+
     Rails.logger.info '[TaskDueSoonReminderJob] Starting due soon reminders check...'
 
     # Find tasks due in next 1 hour

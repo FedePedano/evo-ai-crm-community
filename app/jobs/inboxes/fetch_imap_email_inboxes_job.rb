@@ -1,7 +1,14 @@
 class Inboxes::FetchImapEmailInboxesJob < ApplicationJob
+  include TenantDispatch
+
   queue_as :scheduled_jobs
 
-  def perform
+  def perform(tenant_schema: nil)
+    if tenant_schema.nil? && multitenant_active?
+      dispatch_to_each_tenant(self.class)
+      return
+    end
+
     email_inboxes = Inbox.where(channel_type: 'Channel::Email')
     fetched_count = 0
     skipped_push_count = 0

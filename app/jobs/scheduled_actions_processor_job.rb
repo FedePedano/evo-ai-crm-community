@@ -1,11 +1,19 @@
 # frozen_string_literal: true
 
 class ScheduledActionsProcessorJob < ApplicationJob
+  include TenantDispatch
+
   # Temporarily using scheduled_jobs queue until scheduler pod is updated with scheduled_actions queue
   queue_as :scheduled_jobs
 
   # Process all due scheduled actions
-  def perform(scheduled_action_id = nil)
+  def perform(scheduled_action_id = nil, tenant_schema: nil)
+    # Auto-dispatch multitenant A2 (solo cuando viene del cron, sin args).
+    if scheduled_action_id.nil? && tenant_schema.nil? && multitenant_active?
+      dispatch_to_each_tenant(self.class)
+      return
+    end
+
     if scheduled_action_id
       # Process specific action (used for retries)
       process_single_action(scheduled_action_id)

@@ -1,13 +1,12 @@
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
-  # In the development environment your application's code is reloaded on
-  # every request. This slows down response time but is perfect for development
-  # since you don't have to restart the web server when you make code changes.
-  config.cache_classes = false
+  # Staging espeja producción (no dev): eager load para que sidekiq-cron
+  # resuelva las clases de jobs al encolar (con lazy-load, constantize falla
+  # con NameError y encola el payload crudo => `undefined method 'jid='`).
+  config.cache_classes = true
 
-  # Do not eager load code on boot.
-  config.eager_load = false
+  config.eager_load = true
 
   # Show full error reports.
   config.consider_all_requests_local = true
@@ -46,6 +45,11 @@ Rails.application.configure do
     port: backend_url.port,
     protocol: backend_url.scheme
   }
+
+  # Como producción: nunca dumpear schema (los hijos de tenants:replay/
+  # migrate_all corren con search_path de tenant y contaminarían db/schema.rb
+  # con el dump del tenant — staging 2026-10-01).
+  config.active_record.dump_schema_after_migration = false
 
   # Print deprecation notices to the Rails logger.
   config.active_support.deprecation = :log

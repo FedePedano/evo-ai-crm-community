@@ -56,6 +56,8 @@ remove_stale_contact_inboxes_job.rb:
 
 # executed daily at 2230 UTC
 # which is our lowest traffic time
+# Multitenant A2: a PROPÓSITO sin dispatch (limpia keys de Redis globales,
+# incluyendo las de todos los tenants). No convertir a TenantDispatch.
 remove_stale_redis_keys_job.rb:
   cron: '30 22 * * *'
   class: 'Internal::RemoveStaleRedisKeysJob'

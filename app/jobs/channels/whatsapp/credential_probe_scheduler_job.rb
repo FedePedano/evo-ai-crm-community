@@ -3,6 +3,8 @@
 # credential revoked afterwards leaves no trace, so the channel reads connected
 # forever. This job is what asks again.
 class Channels::Whatsapp::CredentialProbeSchedulerJob < ApplicationJob
+  include TenantDispatch
+
   queue_as :low
 
   # Target interval between two probes of the same channel, kept far below
@@ -13,7 +15,12 @@ class Channels::Whatsapp::CredentialProbeSchedulerJob < ApplicationJob
   # The stamp format written by Channel::Whatsapp#record_credential_probe!.
   STAMP_FORMAT = '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$'.freeze
 
-  def perform
+  def perform(tenant_schema: nil)
+    if tenant_schema.nil? && multitenant_active?
+      dispatch_to_each_tenant(self.class)
+      return
+    end
+
     due_channels.each { |channel| Channels::Whatsapp::CredentialProbeJob.perform_later(channel) }
   end
 

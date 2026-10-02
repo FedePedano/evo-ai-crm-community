@@ -24,8 +24,23 @@ module TenantDispatch
 
   private
 
+  # True cuando el deployment es multitenant (hay registro). Los schedulers
+  # auto-dispatch usan esto para decidir: con tenant_schema o sin registro
+  # => trabajar inline (legacy); sin tenant_schema y CON registro => fan-out.
+  # En test se fuerza legacy (a menos que MULTITENANT_FORCE=1): la suite
+  # existente prueba comportamiento single-tenant con DBs frescas; lo
+  # multitenant lo cubren tenant_isolation_spec + e2e en staging.
+  def multitenant_active?
+    return true if ENV['MULTITENANT_FORCE'] == '1'
+    return false if Rails.env.test?
+
+    ActiveRecord::Base.connection.table_exists?('public.tenants')
+  rescue StandardError
+    false
+  end
+
   def tenant_schemas
-    return [] unless ActiveRecord::Base.connection.table_exists?('public.tenants')
+    return [] unless multitenant_active?
 
     Tenant.active.pluck(:schema_name)
   rescue StandardError

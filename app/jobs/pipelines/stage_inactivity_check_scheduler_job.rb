@@ -3,13 +3,20 @@
 # stages. The fine-grained "has enough time elapsed?" decision lives in the
 # service; here we only coarse-filter to avoid scanning every pipeline_item.
 class Pipelines::StageInactivityCheckSchedulerJob < ApplicationJob
+  include TenantDispatch
+
   queue_as :scheduled_jobs
 
   # JSONB containment: stage has a rule whose trigger == 'inactivity'.
   HAS_INACTIVITY_RULE = "automation_rules @> ?".freeze
   CONTAINMENT = { rules: [{ trigger: 'inactivity' }] }.to_json.freeze
 
-  def perform
+  def perform(tenant_schema: nil)
+    if tenant_schema.nil? && multitenant_active?
+      dispatch_to_each_tenant(self.class)
+      return
+    end
+
     stage_ids = PipelineStage.where(HAS_INACTIVITY_RULE, CONTAINMENT).pluck(:id)
     return if stage_ids.empty?
 

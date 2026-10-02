@@ -1,7 +1,14 @@
 class Gmail::RenewWatchJob < ApplicationJob
+  include TenantDispatch
+
   queue_as :low
 
-  def perform
+  def perform(tenant_schema: nil)
+    if tenant_schema.nil? && multitenant_active?
+      dispatch_to_each_tenant(self.class)
+      return
+    end
+
     Rails.logger.info '[GMAIL_PUSH] Starting watch renewal for all Gmail channels'
 
     renewed_count = 0

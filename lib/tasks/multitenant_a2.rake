@@ -82,20 +82,45 @@ namespace :tenants do
       ok = system(env.merge('SCHEMA' => schema_file.to_s), 'bundle', 'exec', 'rails', 'db:schema:load')
       abort 'replay falló' unless ok
     end
-    # schema:load registra una versión vieja: se fija a la del schema actual
-    # para que los futuros `db:migrate` por tenant sean no-op hasta la
-    # próxima migración real.
-    file_version = File.read(Rails.root.join('db/schema.rb'))[/define\(version: (\d[\d_]+)\)/, 1].delete('_')
+    # Se registran TODAS las versiones conocidas (no una sola): Rails corre
+    # cualquier migración no registrada, sin importar el orden. Esto espeja
+    # un deployment al día y hace que `db:migrate` futuro sea no-op hasta la
+    # próxima migración real. Incluye borrado de filas de un replay parcial.
+    versions = ActiveRecord::MigrationContext.new(
+      ActiveRecord::Migrator.migrations_paths
+    ).migrations.map(&:version).uniq.sort
     conn = ActiveRecord::Base.connection
     conn.execute("DELETE FROM #{tenant.schema_name}.schema_migrations")
-    conn.execute("INSERT INTO #{tenant.schema_name}.schema_migrations (version) VALUES ('#{file_version}')")
+    versions.each_slice(500) do |batch|
+      conn.execute(
+        "INSERT INTO #{tenant.schema_name}.schema_migrations (version) VALUES #{batch.map { |v| "('#{v}')" }.join(',')}"
+      )
+    end
+    puts "versiones registradas: #{versions.size}"
     count = ActiveRecord::Base.connection.execute(
       "SELECT count(*) FROM information_schema.tables WHERE table_schema = '#{tenant.schema_name}'"
     ).getvalue(0, 0)
     puts "OK: #{count} tablas en #{tenant.schema_name}"
   end
 
-  desc 'Seed mínimo de negocio: admin + equipo + membresía (password aleatorio)'
+  desc 'Corre db:migrate en el schema de cada tenant activo (drift nunca más)'
+  task migrate_all: :environment do
+    abort 'sin registro public.tenants' unless ActiveRecord::Base.connection.table_exists?('public.tenants')
+
+    tenants = Tenant.active.order(:slug)
+    puts "migrate_all: #{tenants.size} tenant(s)"
+    tenants.each do |tenant|
+      abort "schema inseguro: #{tenant.schema_name}" unless tenant.schema_name =~ /\Acliente_[a-z0-9_]+\z/
+
+      env = { 'TENANT_SCHEMA_SEARCH_PATH' => "#{tenant.schema_name}, extensions" }
+      puts "== #{tenant.slug} (#{tenant.schema_name})"
+      ok = system(env, 'bundle', 'exec', 'rails', 'db:migrate')
+      abort "migrate falló en #{tenant.slug}" unless ok
+    end
+    puts 'OK migrate_all'
+  end
+
+  desc 'Seed mínimo de negocio: admin + equipo + membresía (auth externo)'
   task :seed_business, %i[slug email] => :environment do |_, args|
     abort 'falta email' if args[:email].blank?
 
@@ -114,6 +139,31 @@ namespace :tenants do
           m.role = 'owner'
         end
         puts "OK seed #{tenant.slug}: user=\#{user.email} team=\#{team.name}"
+
+        # Fase A: seed demo completo (sintético, autocontenido). Widget web
+        # (sin API externa), bot IA mínimo enlazado al inbox, etiquetas.
+        # NOTA: este script viaja dentro de un heredoc <<~RUBY (doble comilla):
+        # `\ ` se come el backslash => nada de %w con escapes; strings
+        # explícitos. Además Inbox/Label normalizan (demo-web, downcase):
+        # buscar con el valor YA normalizado para idempotencia real.
+        widget = Channel::WebWidget.find_or_create_by!(website_url: 'https://demo.example.com')
+        inbox = Inbox.find_by(name: 'demo-web') || Inbox.create!(name: 'Demo Web', channel: widget)
+        InboxMember.find_or_create_by!(user_id: user.id, inbox_id: inbox.id)
+        bot = AgentBot.find_or_create_by!(name: 'Asistente Demo') do |b|
+          b.description = 'Bot IA sintético del tenant (seed experimento A2)'
+          b.bot_type = 'webhook'
+        end
+        AgentBotInbox.find_or_create_by!(agent_bot_id: bot.id, inbox_id: inbox.id)
+        ['interesado', 'visita', 'escritura'].each_with_index do |title, i|
+          lbl = Label.find_by(title: title)
+          lbl ||= Label.create!(
+            title: title,
+            description: "Etiqueta demo \#{i + 1}",
+            color: ['#1abc9c', '#3498db', '#9b59b6'][i],
+            show_on_sidebar: true
+          )
+        end
+        puts "OK seed full: inbox=\#{inbox.name} bot=\#{bot.name} labels=\#{Label.count}"
       RUBY
       ok = system(env, 'bundle', 'exec', 'rails', 'runner', '-e', Rails.env, script)
       abort 'seed falló' unless ok
